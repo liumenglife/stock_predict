@@ -1,6 +1,5 @@
 import tensorflow as tf
 from .model_base import ModelBase
-import numpy as np
 
 
 class RNN(ModelBase):
@@ -28,7 +27,8 @@ class RNN(ModelBase):
             for i in range(num_layers):
                 # print(i)
                 cell = tf.contrib.rnn.LSTMCell(num_units=dim_hidden, state_is_tuple=True, activation=tf.tanh)
-                cell = tf.nn.rnn_cell.DropoutWrapper(cell=cell, input_keep_prob=1.0, output_keep_prob=1.0)
+                cell = tf.nn.rnn_cell.DropoutWrapper(cell=cell, input_keep_prob=1.0,
+                                                     output_keep_prob=self.dropout_keep_prob)
                 stacked_rnn.append(cell)
 
             print('Num of layers: %i' % len(stacked_rnn))
@@ -38,7 +38,8 @@ class RNN(ModelBase):
                 stacked_rnn_bw = list()
                 for i in range(num_layers):
                     cell_bi = tf.contrib.rnn.LSTMCell(num_units=dim_hidden, state_is_tuple=True, activation=tf.tanh)
-                    cell_bi = tf.nn.rnn_cell.DropoutWrapper(cell=cell_bi, input_keep_prob=1.0, output_keep_prob=1.0)
+                    cell_bi = tf.nn.rnn_cell.DropoutWrapper(cell=cell_bi, input_keep_prob=1.0,
+                                                            output_keep_prob=self.dropout_keep_prob)
                     stacked_rnn_bw.append(cell_bi)
 
                 stacked_rnn_bw = tf.nn.rnn_cell.MultiRNNCell(cells=stacked_rnn_bw)
