@@ -22,7 +22,7 @@ class Train(ModelSaver):
 
     def training(self, data_path, output_path, rnn_type='gru', mode=2, epochs=10, batch_size=50, sequence_length=10, train_test_ratio=0.1, label_term=10,
                  use_bidirectional=False, dim_hidden=10, learning_rate=0.01, num_layers=1):
-        data_loader = DataLoader(data_path=data_path, sequence_length=sequence_length,
+        data_loader = DataLoader(data_path=data_path, mode=mode, sequence_length=sequence_length,
                                  train_test_ratio=train_test_ratio, label_term=label_term)
 
         label_list = data_loader.label_list
@@ -85,7 +85,8 @@ class Train(ModelSaver):
 
                 for i, (data, labels) in enumerate(data_loader.batch_loader(data_loader.test_dataset, batch_size)):
                     accuracy, logits, loss = sess.run([model.accuracy, model.logits, model.loss],
-                                                feed_dict={model.x: data, model.y: labels, model.dropout_keep_prob: 1.0})
+                                                feed_dict={ model.x: data, model.y: labels,
+                                                           model.dropout_keep_prob: 1.0})
 
                     avg_loss += float(loss)
                     avg_accuracy += float(accuracy)
