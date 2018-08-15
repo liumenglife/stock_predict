@@ -14,7 +14,10 @@ class ModelSaver:
         :param directory: Path of cpkt
         :return: None
         """
-        # self.saver.restore(self.sess, directory)
+        if directory is None:
+            self.sess.run(tf.global_variables_initializer())
+            return
+
         ckpt = tf.train.get_checkpoint_state(directory)
         if ckpt and gfile.Exists("%s.index" % ckpt.model_checkpoint_path):
             print("Reading model parameters from %s" % ckpt.model_checkpoint_path)
@@ -34,9 +37,6 @@ class ModelSaver:
         """
         self.saver.save(self.sess, directory, global_step=global_step)
         self.last_path = directory
-
-    def set_session(self, sess):
-        self.sess = sess
 
     def _create_saver(self):
 
@@ -63,7 +63,8 @@ class ModelSaver:
 
         return self.sess
 
-    def model_init(self, func):
+    def _model_init(self, model, gpu, rnn_type, mode, num_layers, sequence_length, use_bidirectional, dim_hidden, num_labels,
+                    directory=None):
         """
         Initiate model with session and graph
 
@@ -72,15 +73,22 @@ class ModelSaver:
         """
         g = tf.Graph()
         with g.as_default():
-            with tf.device('/gpu:' + str(self.gpu)):
-                self.model = self.model(config=self.config, name=self.name,
-                                        vocab_size=self.vocab_size, reuse=self.reuse)
+            if self.cpu_only == True:
+                with tf.device('/cpu:0'):
+                    self.model = model(mode=mode, rnn_type=rnn_type, num_layers=num_layers,
+                                       sequence_length=sequence_length,
+                                       use_bidirectional=use_bidirectional, dim_hidden=dim_hidden,
+                                       num_labels=num_labels)
+            else:
+                with tf.device('/gpu:' + str(gpu)):
+                    self.model = model(mode=mode, num_layers=num_layers, sequence_length=sequence_length,
+                                       use_bidirectional=use_bidirectional, dim_hidden=dim_hidden, num_labels=num_labels)
 
         self.sess = self.session_initialize(graph=g)
         with self.sess.as_default():
             with g.as_default():
-                self.create_saver()
-                func()
+                self._create_saver()
+                self.restore_checkpoint(directory=directory)
 
         return self.model, self.sess, g
 

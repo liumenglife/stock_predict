@@ -4,12 +4,14 @@ import tensorflow as tf
 from .rnn import RNN
 import sys
 from .model_saver import ModelSaver
+from os.path import join
 
 
 class Train(ModelSaver):
     def __init__(self, model_name):
 
         self.cpu_only = True
+        self.gpu = 0
 
         if model_name == 'rnn':
             # self._model = RnnAttnModel
@@ -18,7 +20,7 @@ class Train(ModelSaver):
             print('No matching model found')
             sys.exit()
 
-    def training(self, data_path, output_path, epochs=10, batch_size=50, sequence_length=10, train_test_ratio=0.1, label_term=10,
+    def training(self, data_path, output_path, rnn_type='gru', mode=2, epochs=10, batch_size=50, sequence_length=10, train_test_ratio=0.1, label_term=10,
                  use_bidirectional=False, dim_hidden=10, learning_rate=0.01, num_layers=1):
         data_loader = DataLoader(data_path=data_path, sequence_length=sequence_length,
                                  train_test_ratio=train_test_ratio, label_term=label_term)
@@ -26,20 +28,10 @@ class Train(ModelSaver):
         label_list = data_loader.label_list
         print('Label Length: %i' % (len(label_list)))
 
-        model = self._model(num_layers=num_layers, sequence_length=sequence_length, use_bidirectional=use_bidirectional,
-                            dim_hidden=dim_hidden, num_labels=len(label_list))
-
-        config = tf.ConfigProto()
-        config.gpu_options.allow_growth = True
-
-        self._create_saver()
-        sess = self.session_initialize()
-        # sess = tf.Session(config=config)
-        sess.run(tf.global_variables_initializer())
-
-        # self.set_session(sess)
-        # sess = tf.InteractiveSession()
-        # tf.global_variables_initializer().run()
+        model, sess, g = self._model_init(model=self._model, gpu=self.gpu, mode=mode, num_layers=num_layers,
+                                          rnn_type=rnn_type,
+                                          sequence_length=sequence_length, use_bidirectional=use_bidirectional,
+                                          dim_hidden=dim_hidden, num_labels=len(label_list))
 
         global_step = 0
 
@@ -97,8 +89,11 @@ class Train(ModelSaver):
 
                     avg_loss += float(loss)
                     avg_accuracy += float(accuracy)
-                print('[epoch] %i test_loss: %f accuracy: %f' % (epoch, float(avg_loss / batch_iter_max),
-                                                                 float(avg_accuracy / batch_iter_max)))
+
+                avg_loss = float(avg_loss / batch_iter_max)
+                avg_accuracy = float(avg_accuracy / batch_iter_max)
+
+                print('[epoch] %i test_loss: %f accuracy: %f' % (epoch, avg_loss, avg_accuracy))
 
             if epoch == epochs - 1:
                 # print('')
@@ -115,7 +110,8 @@ class Train(ModelSaver):
                 # print(outputs)
                 # break
 
-                self.save_session(directory=output_path, global_step=global_step)
+                output_full_path = join(output_path, 'loss%f_acc%f_epoch%i' % (avg_loss, avg_accuracy, epoch + 1))
+                self.save_session(directory=output_full_path, global_step=global_step)
 
 
 
