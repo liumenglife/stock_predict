@@ -50,8 +50,6 @@ class StockInfo:
             print('Collecting years... ', by_year)
             # print('Mininum Year: %i' % min_year)
 
-
-
         df = pd.DataFrame()
 
         for page in range(1, 1000):
