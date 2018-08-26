@@ -1,5 +1,4 @@
-from .data_loader import DataLoader
-import tensorflow as tf
+from src.data.data_loader import DataLoader
 # from .models.rnn import RnnAttnModel
 from .rnn import RNN
 import sys

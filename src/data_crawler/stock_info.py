@@ -1,10 +1,12 @@
-import requests
-from bs4 import BeautifulSoup
+
 import pandas as pd
 # pd.core.common.is_list_like = pd.api.types.is_list_like
 # from pandas_datareader.google.daily import GoogleDailyReader
 # import pandas_datareader as pdr
 from datetime import datetime
+import numpy as np
+from os.path import join, exists, dirname
+from os import makedirs
 
 
 class StockInfo:
@@ -154,10 +156,26 @@ class StockInfo:
         print('Crawling data finished. Total elapsed time:', datetime.now() - a)
         print('Crawling failed company list:', fcl)
 
+        if not exists(dirname(output_path)):
+            makedirs(dirname(output_path))
+
         all_data.to_csv(output_path)
         print('Data saved!!')
 
+    def split_data_by_company(self, input_path, output_path):
 
+        df = pd.read_csv(input_path)
+
+        if not exists(output_path):
+            makedirs(output_path)
+
+        for idx, company_name in enumerate(df.name.unique()):
+            print(idx, company_name)
+            a = df.loc[df['name'] == company_name]
+            a = a.loc[:, a.columns != 'name']
+            np.save(join(output_path, company_name), a)
+
+        print('All data saved by company name. Length of company:', len(df.name.unique()))
 
 
 
