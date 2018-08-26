@@ -67,7 +67,7 @@ class PreProcess:
                 np.save(join(n_output_path, fname), [sequence_data, end_data])
 
         a = datetime.now() - a
-        print('Time elapsed:', a)
+        print('Elapsed time:', a)
 
         return all_sequence_data, all_end_data
 
@@ -143,21 +143,24 @@ class PreProcess:
         if mode == 2:
             labels = labels[:, -1]
 
-        result = dict()
-        result['queries'] = queries
-        result['labels'] = labels
-        print('Data sequence created. saving now...')
-        try:
-            if output_path is not None:
-                n_output_path = join(output_path, 'labelled_data_' + str(mode))
-                if not exists(n_output_path):
-                    makedirs(n_output_path)
-                np.save(join(n_output_path, 'x_y'), result)
-                # np.save(join(n_output_path, 'x'), queries)
-                # np.save(join(n_output_path, 'y'), labels)
-        except Exception as e:
-            print('Saving Error!')
-            print(e)
+        max_data_length = 1000000
+
+        for idx, pos in enumerate(range(0, len(queries), max_data_length)):
+            result = dict()
+            result['queries'] = queries[pos: min(pos + max_data_length, len(queries))]
+            result['labels'] = labels[pos: min(pos + max_data_length, len(queries))]
+            print('Data sequence created. saving now...')
+            try:
+                if output_path is not None:
+                    n_output_path = join(output_path, 'labelled_data_' + str(mode))
+                    if not exists(n_output_path):
+                        makedirs(n_output_path)
+                    np.save(join(n_output_path, 'x_y' + str(idx)), result)
+                    # np.save(join(n_output_path, 'x'), queries)
+                    # np.save(join(n_output_path, 'y'), labels)
+            except Exception as e:
+                print('Saving Error!')
+                print(e)
 
         a = datetime.now() - a
         print('Elapsed time:', a)
@@ -175,6 +178,7 @@ class PreProcess:
     #     :param label_range:
     #     :return:
     #     """
+    #     a = datetime.now()
     #
     #     data_list = sorted([f.replace('.npy', '') for f in listdir(input_path)
     #                              if isfile(join(input_path, f)) and '.DS_Store' not in f])
@@ -230,6 +234,9 @@ class PreProcess:
     #     all_sequence_data = np.array(all_sequence_data)
     #     all_end_data = np.array(all_end_data)
     #
+    #     a = datetime.now() - a
+    #     print('Elapsed time:', a)
+    #
     #     return all_sequence_data, all_end_data
     #
     #
@@ -246,10 +253,8 @@ class PreProcess:
     #     :return:
     #     """
     #
-    #     # queries = list()
-    #     # labels = list()
-    #     # queries = np.array(list())
-    #     # labels = np.array(list())
+    #     a = datetime.now()
+    #
     #     print('Sequence data shape:', sequence_data.shape)
     #     queries = np.empty(shape=[sequence_data.shape[1], sequence_data.shape[2]])
     #     labels = np.array(list())
@@ -326,6 +331,9 @@ class PreProcess:
     #     except Exception as e:
     #         print('Saving Error!')
     #         print(e)
+    #
+    #     a = datetime.now() - a
+    #     print('Elapsed time:', a)
     #
     #     return queries, labels
 
