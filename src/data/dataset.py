@@ -60,8 +60,8 @@ class DataSet:
             # TODO not yet implemented
             # read mode first then do next,,,
             all_data = np.load(data_path)
-            self.queries = all_data[0] # list of input data
-            self.labels = all_data[1] # list of label data
+            self.queries = all_data['queries'] # list of input data
+            self.labels = all_data['labels'] # list of label data
 
         print(len(self.queries))
         print(len(self.labels))

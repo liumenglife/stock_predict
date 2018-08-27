@@ -164,7 +164,7 @@ class StockInfo:
 
     def split_data_by_company(self, input_path, output_path):
 
-        df = pd.read_csv(input_path)
+        df = pd.read_csv(input_path, index_col=0)
 
         if not exists(output_path):
             makedirs(output_path)
