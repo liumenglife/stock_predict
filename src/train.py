@@ -20,9 +20,10 @@ class Train(ModelSaver):
             sys.exit()
 
     def training(self, data_path, output_path, rnn_type='gru', mode=2, epochs=10, batch_size=50, sequence_length=10, train_test_ratio=0.1, label_term=10,
-                 use_bidirectional=False, dim_hidden=10, learning_rate=0.01, num_layers=1):
+                 use_bidirectional=False, dim_hidden=10, learning_rate=0.01, num_layers=1, data_status=0):
         data_loader = DataLoader(data_path=data_path, mode=mode, sequence_length=sequence_length,
-                                 train_test_ratio=train_test_ratio, label_term=label_term)
+                                 train_test_ratio=train_test_ratio, label_term=label_term, output_path=output_path,
+                                 data_status=data_status)
 
         label_list = data_loader.label_list
         print('Label Length: %i' % (len(label_list)))

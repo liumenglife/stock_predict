@@ -59,7 +59,7 @@ class DataSet:
         else:
             # TODO not yet implemented
             # read mode first then do next,,,
-            all_data = np.load(data_path)
+            all_data = np.load(data_path).tolist()
             self.queries = all_data['queries'] # list of input data
             self.labels = all_data['labels'] # list of label data
 

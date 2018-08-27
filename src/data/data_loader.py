@@ -6,8 +6,10 @@ from sklearn.model_selection import train_test_split
 
 class DataLoader:
 
-    def __init__(self, data_path, mode, sequence_length=10, train_test_ratio=0.1, label_term=10):
-        self.dataset = DataSet(data_path=data_path, mode=mode, sequence_length=sequence_length, label_term=label_term)
+    def __init__(self, data_path, mode, output_path=None, data_status=2, sequence_length=10, train_test_ratio=0.1,
+                 label_term=10):
+        self.dataset = DataSet(data_path=data_path, output_path=output_path, data_status=data_status,
+                               mode=mode, sequence_length=sequence_length, label_term=label_term)
 
         self.label_list = np.unique(self.dataset.labels)
         for label in self.label_list:
