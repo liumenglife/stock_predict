@@ -19,7 +19,7 @@ class Train(ModelSaver):
             print('No matching model found')
             sys.exit()
 
-    def training(self, data_path, use_gpu=False, output_path, rnn_type='gru', mode=2, epochs=10, batch_size=50, sequence_length=10, train_test_ratio=0.1, label_term=10,
+    def training(self, data_path, output_path, use_gpu=False, rnn_type='gru', mode=2, epochs=10, batch_size=50, sequence_length=10, train_test_ratio=0.1, label_term=10,
                  use_bidirectional=False, dim_hidden=10, learning_rate=0.01, num_layers=1, data_status=0):
         
         self.cpu_only = use_gpu
