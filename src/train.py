@@ -46,6 +46,7 @@ class Train(ModelSaver):
 
         global_step = 0
         print_step_interval = 500
+        step_time = datetime.now()
 
         for epoch in range(epochs):
             data_loader.reshuffle()
@@ -53,7 +54,6 @@ class Train(ModelSaver):
             avg_accuracy = 0.0
 
             cur_time = datetime.now()
-            step_time = datetime.now()
 
             batch_iter_max = len(data_loader.dataset) / batch_size + 1
             for i, (data, labels) in enumerate(data_loader.batch_loader(data_loader.dataset, batch_size)):
@@ -65,8 +65,7 @@ class Train(ModelSaver):
                                                                          model.dropout_keep_prob: 0.5,
                                                                          model.learning_rate: learning_rate
                                                                          })
-                # print('Batch : ', i + 1, '/', one_batch_size,
-                #       ', BCE in this minibatch: ', float(loss))
+
                 avg_loss += float(loss)
                 avg_accuracy += float(accuracy)
                 global_step += 1
@@ -118,9 +117,9 @@ class Train(ModelSaver):
                     t_avg_loss = float(t_avg_loss / t_batch_iter_max)
                     t_avg_accuracy = float(t_avg_accuracy / t_batch_iter_max)
 
-                    print('[epoch-%i] duration: %is test_loss: %f accuracy: %f' % (epoch,
-                                                                                   (datetime.now() - cur_time).seconds,
-                                                                                   t_avg_loss, t_avg_accuracy))
+                    print('[global_step-%i] duration: %is test_loss: %f accuracy: %f' % (global_step,
+                                                                                         (datetime.now() - cur_time).seconds,
+                                                                                         t_avg_loss, t_avg_accuracy))
 
             if epoch == epochs - 1:
                 # print('')
