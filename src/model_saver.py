@@ -64,8 +64,7 @@ class ModelSaver:
         return self.sess
 
     def _model_init(self, model, gpu, rnn_type, mode, num_layers, sequence_length, use_bidirectional, dim_hidden,
-                    num_labels, feature_length,
-                    directory=None):
+                    num_labels, feature_length, attention_type, directory=None):
         """
         Initiate model with session and graph
 
@@ -79,13 +78,13 @@ class ModelSaver:
                     self.model = model(mode=mode, rnn_type=rnn_type, num_layers=num_layers,
                                        sequence_length=sequence_length, feature_length=feature_length,
                                        use_bidirectional=use_bidirectional, dim_hidden=dim_hidden,
-                                       num_labels=num_labels)
+                                       num_labels=num_labels, attention_type=attention_type)
             else:
                 with tf.device('/gpu:' + str(gpu)):
                     self.model = model(mode=mode, rnn_type=rnn_type, num_layers=num_layers,
                                        sequence_length=sequence_length, feature_length=feature_length,
                                        use_bidirectional=use_bidirectional, dim_hidden=dim_hidden,
-                                       num_labels=num_labels)
+                                       num_labels=num_labels, attention_type=attention_type)
 
         self.sess = self.session_initialize(graph=g)
         with self.sess.as_default():

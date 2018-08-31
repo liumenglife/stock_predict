@@ -4,7 +4,8 @@ from .model_base import ModelBase
 
 class RNN(ModelBase):
 
-    def __init__(self, mode, rnn_type, feature_length, num_layers, sequence_length, use_bidirectional, dim_hidden, num_labels):
+    def __init__(self, mode, rnn_type, feature_length, num_layers, sequence_length, use_bidirectional,
+                 dim_hidden, num_labels, attention_type):
         self.mode = mode
         self.rnn_type = rnn_type
         self.num_layers = num_layers
@@ -14,6 +15,7 @@ class RNN(ModelBase):
             self.dim_hidden = dim_hidden * 2
 
         self.num_labels = num_labels
+        self.attention_type = attention_type
 
         # self.x = tf.placeholder(tf.float32, shape=[None, self.sequence_length, self.dim_hidden], name='x')
         self.x = tf.placeholder(tf.float32, shape=[None, self.sequence_length, feature_length], name='x')
@@ -27,15 +29,18 @@ class RNN(ModelBase):
         self.dropout_keep_prob = tf.placeholder(tf.float32, name='dropout_keep_prob')
 
         print('Num of layers: %i' % num_layers)
-        print('batch size:', tf.shape(self.x)[0])
         batch_size = tf.shape(self.x)[0]
 
-        self.outputs, self.output_states = self.build_rnn_layers(use_bidirectional=self.use_bidirectional,
+        outputs, output_states = self.build_rnn_layers(use_bidirectional=self.use_bidirectional,
                                                                  num_layers=self.num_layers,
                                                                  rnn_type=self.rnn_type,
                                                                  dim_hidden=dim_hidden,
                                                                  keep_prob=self.dropout_keep_prob)
                                                                  # , batch_size=batch_size)
+
+        self.outputs, self.output_states = self.build_attention(attention_type, outputs, output_states, rnn_type, num_layers,
+                                                                self.dim_hidden, self.dropout_keep_prob,
+                                                                sequence_length, self.y)
 
         # batch_size = tf.shape(self.outputs)[0]
 
@@ -44,7 +49,7 @@ class RNN(ModelBase):
         self.train = self.optimize(learning_rate=self.learning_rate, loss=self.loss)
         self.pred, self.accuracy, self.correct_count = self.evaluate(self.mode, self.logits, self.y)
 
-    def build_rnn_layers(self, use_bidirectional, num_layers, rnn_type, dim_hidden, keep_prob, batch_size=0):
+    def build_rnn_cell_stack(self, rnn_type, num_layers, dim_hidden, keep_prob):
         cell_type = {
             'lstm': tf.contrib.rnn.LSTMCell,
             'gru': tf.contrib.rnn.GRUCell
@@ -54,12 +59,19 @@ class RNN(ModelBase):
                                                        input_keep_prob=1.0,
                                                        output_keep_prob=keep_prob)
 
+        stacked_rnn = tf.nn.rnn_cell.MultiRNNCell(cells=[cell(cell_type[rnn_type]) for i in range(num_layers)])
+        return stacked_rnn
+
+    def build_rnn_layers(self, use_bidirectional, num_layers, rnn_type, dim_hidden, keep_prob, batch_size=0):
+
         with tf.variable_scope('dynamic_rnn') as scope:
-            stacked_rnn = tf.nn.rnn_cell.MultiRNNCell(cells=[cell(cell_type[rnn_type]) for i in range(num_layers)])
+            stacked_rnn = self.build_rnn_cell_stack(rnn_type=rnn_type, num_layers=num_layers, dim_hidden=dim_hidden,
+                                                    keep_prob=keep_prob)
             # init_state = stacked_rnn.zero_state(batch_size=batch_size, dtype=tf.float32)
 
             if use_bidirectional:
-                stacked_rnn_bw = tf.nn.rnn_cell.MultiRNNCell(cells=[cell(cell_type[rnn_type]) for i in range(num_layers)])
+                stacked_rnn_bw = self.build_rnn_cell_stack(rnn_type=rnn_type, num_layers=num_layers,
+                                                           dim_hidden=dim_hidden, keep_prob=keep_prob)
 
                 outputs, output_states = tf.nn.bidirectional_dynamic_rnn(cell_fw=stacked_rnn, cell_bw=stacked_rnn_bw,
                                                                          # sequence_length=self.batch_size,
@@ -75,6 +87,41 @@ class RNN(ModelBase):
                                                            scope=scope)
 
         return outputs, output_states
+
+    def build_attention(self, attention_type, encoder_outputs, encoder_states, rnn_type, num_layers, dim_hidden, keep_prob,
+                        sequence_length, y):
+
+        if attention_type == 0: # bahdanau
+            # Attention mechanism
+            attention_mechanism = tf.contrib.seq2seq.BahdanauAttention(num_units=dim_hidden, memory=encoder_outputs)
+
+        elif attention_type == 1: # luong
+            attention_mechanism = tf.contrib.seq2seq.LuongAttention(num_units=dim_hidden, memory=encoder_outputs)
+        else:
+            return encoder_outputs, encoder_states
+
+        decoder_cell = self.build_rnn_cell_stack(rnn_type=rnn_type, num_layers=num_layers,
+                                                 dim_hidden=dim_hidden, keep_prob=keep_prob)
+        attention_cell = tf.contrib.seq2seq.AttentionWrapper(decoder_cell, attention_mechanism,
+                                                             output_attention=False)
+
+        # Initial attention
+        attention_zero = attention_cell.zero_state(batch_size=tf.shape(encoder_outputs)[0], dtype=tf.float32)
+        initial_state = attention_zero.clone(cell_state=encoder_states[0])
+
+        # Helper function
+        helper = tf.contrib.seq2seq.TrainingHelper(inputs=y, sequence_length=sequence_length)
+        # training_helper = TrainingHelper(inputs=self.y,  # feed in ground truth
+        #                                  sequence_length=self.y_lengths)  # feed in sequence lengths
+
+        decoder = tf.contrib.seq2seq.BasicDecoder(cell=attention_cell,
+                                                  helper=helper,
+                                                  initial_state=initial_state)
+
+        decoder_outputs, decoder_final_state, decoder_final_sequence_lengths \
+            = tf.contrib.seq2seq.dynamic_decode(decoder=decoder)
+
+        return decoder_outputs, decoder_final_state
 
     def build_logits(self, mode, outputs, batch_size):
         with tf.variable_scope('logits') as scope:
@@ -129,40 +176,6 @@ class RNN(ModelBase):
                 print('Wrong mode option')
 
             return loss
-
-    # def attention_mechanism(self): # outputs as encoder outputs
-    #
-    #
-    #     # attention mechanism
-    #     attention_mechanism = tf.contrib.seq2seq.LuongAttention(n_hidden, encoder_outputs)
-    #     attention_mechanism =  tf.contrib.seq2seq.BahdanauAttention(num_units=ATTENTION_UNITS,
-    #                                             memory=encoder_outputs,
-    #                                             normalize=True)
-    #
-    #     # attention wrapper
-    #     attn_cell = tf.contrib.seq2seq.AttentionWrapper(decoder_cell,
-    #                                                     attention_mechanism, attention_size=n_hidden)
-    #     name = "attention_init")
-    #     attention_wrapper = AttentionWrapper(cell=self._create_lstm_cell(DECODER_SIZE),
-    #                             attention_mechanism = attention_mechanism,
-    #                             output_attention = False,
-    #                             alignment_history = True,
-    #                             attention_layer_size = ATTENTION_LAYER_SIZE)
-    #
-    #
-    #     # Initial attention
-    #     attn_zero = attn_cell.zero_state(batch_size=tf.shape(x)[0], dtype=tf.float32)
-    #     init_state = attn_zero.clone(cell_state=states[0])
-    #
-    #     # Helper function
-    #     helper = tf.contrib.seq2seq.TrainingHelper(inputs= ???)
-    #
-    #     # Decoding
-    #     my_decoder = tf.contrib.seq2seq.BasicDecoder(cell=attn_cell,
-    #     helper = helper,
-    #     initial_state = init_state)
-    #
-    #     decoder_outputs, decoder_states = tf.contrib.seq2seq.dynamic_decode(my_decoder)
 
     def optimize(self, learning_rate, loss):
         train = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(loss)

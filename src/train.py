@@ -27,7 +27,7 @@ class Train(ModelSaver):
     def training(self, data_path, output_path, use_gpu=False, rnn_type='gru', mode=2, epochs=10, batch_size=50,
                  sequence_length=10, train_test_ratio=0.1, label_term=10,
                  use_bidirectional=False, dim_hidden=10, learning_rate=0.01, num_layers=1, data_status=0,
-                 feature_length=7):
+                 feature_length=7, attention_type=0):
 
         self.cpu_only = not use_gpu
         # print(self.cpu_only)
@@ -41,6 +41,7 @@ class Train(ModelSaver):
 
         model, sess, g = self._model_init(model=self._model, gpu=self.gpu, mode=mode, num_layers=num_layers,
                                           rnn_type=rnn_type, feature_length=feature_length,
+                                          attention_type=attention_type,
                                           sequence_length=sequence_length, use_bidirectional=use_bidirectional,
                                           dim_hidden=dim_hidden, num_labels=len(label_list))
 
