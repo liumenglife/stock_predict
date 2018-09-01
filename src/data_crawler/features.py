@@ -51,9 +51,9 @@ class Features:
     @staticmethod
     def fnStoch(m_Df, n=14):  # price: 종가(시간 오름차순), n: 기간
         sz = len(m_Df['final_price'])
-        if sz < n:
-            # show error message
-            raise SystemExit('입력값이 기간보다 작음')
+        # if sz < n:
+        #     # show error message
+        #     raise SystemExit('입력값이 기간보다 작음')
         tempSto_K = []
         for i in range(sz):
             if i >= n - 1:

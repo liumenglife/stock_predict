@@ -1,4 +1,3 @@
-
 import pandas as pd
 # pd.core.common.is_list_like = pd.api.types.is_list_like
 # from pandas_datareader.google.daily import GoogleDailyReader
@@ -7,6 +6,7 @@ from datetime import datetime
 import numpy as np
 from os.path import join, exists, dirname
 from os import makedirs
+from .features import Features
 
 
 class StockInfo:
@@ -152,9 +152,10 @@ class StockInfo:
             except Exception as e:
                 fcl.append(name)
 
-
         print('Crawling data finished. Total elapsed time:', datetime.now() - a)
         print('Crawling failed company list:', fcl)
+
+        all_data = self.add_features(df=all_data)
 
         if not exists(dirname(output_path)):
             makedirs(dirname(output_path))
@@ -177,6 +178,36 @@ class StockInfo:
 
         print('All data saved by company name. Length of company:', len(df.name.unique()))
 
+    def add_features(self, input_path=None, output_path=None, df=None):
+
+        if df is None:
+            df = pd.read_csv(input_path)
+
+        df_new = pd.DataFrame()
+        for idx, name in enumerate(df.name.unique()):
+            print(idx, name)
+            try:
+                df_temp = df[df['name'] == name].sort_values(by=['date']).reset_index(drop=True)
+                df_temp = Features.fnMACD(df_temp)
+                df_temp = Features.fnBolingerBand(df_temp)
+                df_temp = Features.fnRSI(df_temp)
+                df_temp = Features.fnStoch(df_temp)
+                df_temp = Features.change_prior_to(df_temp)
+                df_temp = Features.fnMA(df_temp, m_N=[5, 20, 60, 120, 240])
+            except Exception as e:
+                print('Error occurred while adding features at index %i %s' % (idx, name))
+                print(e)
+                continue
+            df_new = pd.concat([df_new, df_temp])
+
+        df = df_new.reset_index(drop=True)
+
+        if output_path is not None:
+            if not exists(dirname(output_path)):
+                makedirs(dirname(output_path))
+            df.to_csv(output_path)
+
+        return df
 
 
 # KRX:code[1:7]
