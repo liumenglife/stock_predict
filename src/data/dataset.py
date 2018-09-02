@@ -62,16 +62,18 @@ class DataSet:
             # self.labels = all_data['labels'] # list of label data
             data_list = sorted([f for f in listdir(self.data_path)
                                 if isfile(join(self.data_path, f)) and '.DS_Store' not in f])
-            self.queries = list()
-            self.labels = list()
+            self.queries = None
+            self.labels = None
 
             for data_name in data_list:
                 data = np.load(join(self.data_path, data_name)).tolist()
-                self.queries.extend(data['queries'].tolist())
-                self.labels.extend(data['labels'].tolist())
+                if self.queries is None and self.labels is None:
+                    self.queries = data['queries']
+                    self.labels = data['labels']
+                else:
+                    self.queries = np.concatenate([self.queries, data['queries']], axis=0)
+                    self.labels = np.concatenate([self.labels, data['labels']], axis=0)
 
-            self.queries = np.array(self.queries)
-            self.labels = np.array(self.labels)
 
         print(len(self.queries))
         print(len(self.labels))
