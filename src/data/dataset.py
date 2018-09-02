@@ -57,11 +57,21 @@ class DataSet:
                                                                 output_path=output_path, label_price=label_price,
                                                                 label_term=label_term)
         else:
-            # TODO not yet implemented
-            # read mode first then do next,,,
-            all_data = np.load(data_path).tolist()
-            self.queries = all_data['queries'] # list of input data
-            self.labels = all_data['labels'] # list of label data
+            # all_data = np.load(data_path).tolist()
+            # self.queries = all_data['queries'] # list of input data
+            # self.labels = all_data['labels'] # list of label data
+            data_list = sorted([f for f in listdir(self.data_path)
+                                if not isfile(join(self.data_path, f)) and '.DS_Store' not in f])
+            self.queries = list()
+            self.labels = list()
+
+            for data_name in data_list:
+                data = np.load(join(self.data_path, data_name)).tolist()
+                self.queries.extend(data['queries'].tolist())
+                self.labels.extend(data['labels'].tolist())
+
+            self.queries = np.array(self.queries)
+            self.labels = np.array(self.labels)
 
         print(len(self.queries))
         print(len(self.labels))
