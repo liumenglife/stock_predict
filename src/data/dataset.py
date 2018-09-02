@@ -61,7 +61,7 @@ class DataSet:
             # self.queries = all_data['queries'] # list of input data
             # self.labels = all_data['labels'] # list of label data
             data_list = sorted([f for f in listdir(self.data_path)
-                                if not isfile(join(self.data_path, f)) and '.DS_Store' not in f])
+                                if isfile(join(self.data_path, f)) and '.DS_Store' not in f])
             self.queries = list()
             self.labels = list()
 

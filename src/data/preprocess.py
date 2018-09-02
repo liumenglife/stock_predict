@@ -143,7 +143,7 @@ class PreProcess:
         if mode == 2:
             labels = labels[:, -1]
 
-        max_data_length = 1000000
+        max_data_length = 100000
 
         for idx, pos in enumerate(range(0, len(queries), max_data_length)):
             result = dict()
