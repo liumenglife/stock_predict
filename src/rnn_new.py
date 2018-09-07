@@ -47,7 +47,7 @@ class RNN(ModelBase):
         self.logits = self.build_logits(mode, self.outputs, batch_size)
         self.loss = self.build_loss(mode, self.logits, batch_size)
         self.train = self.optimize(learning_rate=self.learning_rate, loss=self.loss)
-        self.pred, self.accuracy, self.correct_count = self.evaluate(self.mode, self.logits, self.y)
+        self.pred, self.accuracy, self.correct_count = self.evaluate(self.mode, self.logits, self.y[:, -1])
 
     def build_rnn_cell_stack(self, rnn_type, num_layers, dim_hidden, keep_prob):
         cell_type = {
@@ -185,14 +185,18 @@ class RNN(ModelBase):
 
     def evaluate(self, mode, logits, y):
         with tf.name_scope('evaluation'):
+            pred = None
+
             if mode == 0:
                 pred = tf.argmax(logits, axis=2)
-
+                pred = pred[:, -1]
                 # print(self.y) # Tensor("y:0", shape=(?, 10=sequence_length), dtype=int64, device=/device:CPU:0)
             elif mode == 2:
                 pred = tf.argmax(logits, 1)
                 # print(self.pred) # Tensor("evaluation/ArgMax:0", shape=(?,), dtype=int64)
                 # print(self.y) # Tensor("y:0", shape=(?, 1), dtype=int64)
+
+
             accuracy = tf.reduce_mean(tf.cast(tf.equal(pred, y), tf.float32))
 
             correct_count = tf.reduce_sum(tf.to_float(tf.equal(pred, y)), axis=0)

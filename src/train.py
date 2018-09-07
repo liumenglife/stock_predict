@@ -102,7 +102,7 @@ class Train(ModelSaver):
             #                                                               float(avg_loss / batch_iter_max),
             #                                                               float(avg_accuracy / batch_iter_max)))
 
-                if global_step % (print_step_interval * 10) == 0:
+                if train_test_ratio != 0 and global_step % (print_step_interval * 10) == 0:
                     t_avg_loss = 0.0
                     t_avg_accuracy = 0.0
                     t_batch_iter_max = len(data_loader.test_dataset) / batch_size + 1
@@ -142,6 +142,42 @@ class Train(ModelSaver):
                 output_full_path = join(output_path, 'loss%f_acc%f_epoch%i' % (avg_loss, avg_accuracy, epoch + 1))
                 self.save_session(directory=output_full_path, global_step=global_step)
 
-    def test(self):
-        pass
+    def test(self, model_path, data_path, use_gpu=False, rnn_type='gru', mode=2, batch_size=50,
+                 sequence_length=10, label_term=10,
+                 use_bidirectional=False, dim_hidden=10, num_layers=1, data_status=0,
+                 feature_length=7, attention_type=0):
 
+        self.cpu_only = not use_gpu
+        # print(self.cpu_only)
+
+        data_loader = DataLoader(data_path=data_path, mode=mode, sequence_length=sequence_length,
+                                 train_test_ratio=0, label_term=label_term, output_path=None,
+                                 data_status=data_status)
+
+        label_list = data_loader.label_list
+        print('Label Length: %i' % (len(label_list)))
+
+        model, sess, g = self._model_init(model=self._model, gpu=self.gpu, mode=mode, num_layers=num_layers,
+                                          rnn_type=rnn_type, feature_length=feature_length,
+                                          attention_type=attention_type,
+                                          sequence_length=sequence_length, use_bidirectional=use_bidirectional,
+                                          dim_hidden=dim_hidden, num_labels=len(label_list), directory=model_path)
+
+        t_avg_loss = 0.0
+        t_avg_accuracy = 0.0
+        t_batch_iter_max = len(data_loader.dataset) / batch_size + 1
+
+        cur_time = datetime.now()
+        for t_i, (t_data, t_labels) in enumerate(data_loader.batch_loader(data_loader.dataset, batch_size)):
+            accuracy, logits, loss = sess.run([model.accuracy, model.logits, model.loss],
+                                              feed_dict={model.x: t_data, model.y: t_labels,
+                                                         model.dropout_keep_prob: 1.0})
+
+            t_avg_loss += float(loss)
+            t_avg_accuracy += float(accuracy)
+
+        t_avg_loss = float(t_avg_loss / t_batch_iter_max)
+        t_avg_accuracy = float(t_avg_accuracy / t_batch_iter_max)
+
+        print('[Test Accuracy] duration: %is test_loss: %f accuracy: %f' % ((datetime.now() - cur_time).seconds,
+                                                                            t_avg_loss, t_avg_accuracy))

@@ -16,8 +16,14 @@ class DataLoader:
             # print(np.where(self.dataset.labels == label))
             print('Label %i and num of data: %i' % (label, len(np.where(self.dataset.labels == label)[0])))
 
-        x_train, x_test, y_train, y_test \
-            = train_test_split(self.dataset.queries, self.dataset.labels, test_size=train_test_ratio)
+        if train_test_ratio != 0:
+            x_train, x_test, y_train, y_test \
+                = train_test_split(self.dataset.queries, self.dataset.labels, test_size=train_test_ratio)
+        else:
+            x_train = self.dataset.queries
+            y_train = self.dataset.labels
+            x_test = None
+            y_test = None
 
         self.test_dataset = copy.deepcopy(self.dataset)
 
