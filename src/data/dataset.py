@@ -26,7 +26,6 @@ class DataSet:
 
         self.data_path = data_path
 
-
         self.mode = mode # 0 Many to many, 1 Many to one and many to many, 2 Many to one
 
         self.sequence_length = sequence_length
@@ -44,18 +43,25 @@ class DataSet:
                                                                 output_path=output_path, label_price=label_price,
                                                                 label_term=label_term, mode=mode)
         elif data_status == 1:
-            # TODO not yet implemented fully
             # Load sequenced data
-            data_list = sorted([f.replace('.npy', '') for f in listdir(self.data_path)
+            data_list = sorted([f for f in listdir(self.data_path)
                                      if not isfile(join(self.data_path, f)) and '.DS_Store' not in f])
-            all_data = np.load(data_path)
-            sequence_data = all_data[0]  # list of sequence data
-            end_data = all_data[1]  # list of end data, will be transformed as label
+            sequence_data = None
+            end_data = None
+
+            for data in data_list:
+                all_data = np.load(join(self.data_path, data))
+                if sequence_data is None:
+                    sequence_data = all_data[0]  # list of sequence data
+                    end_data = all_data[1]  # list of end data, will be transformed as label
+                else:
+                    sequence_data = np.concatenate([sequence_data, all_data[0]], axis=0)
+                    end_data = np.concatenate([end_data, all_data[0]], axis=0)
 
             # Make targets (Y)
             self.queries, self.labels = PreProcess.make_dataset(sequence_data=sequence_data, end_data=end_data,
                                                                 output_path=output_path, label_price=label_price,
-                                                                label_term=label_term)
+                                                                label_term=label_term, mode=mode)
         else:
             # all_data = np.load(data_path).tolist()
             # self.queries = all_data['queries'] # list of input data

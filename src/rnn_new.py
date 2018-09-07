@@ -162,16 +162,39 @@ class RNN(ModelBase):
             # print(self.logits)
             # self.loss = tf.reduce_mean(
             #     tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.y, logits=self.logits))
-            if mode == 0:
+            if mode == 0: # Many to many with up / down
                 weights = tf.ones([batch_size, self.sequence_length])
                 sequence_loss = tf.contrib.seq2seq.sequence_loss(logits=logits, targets=self.y, weights=weights)
                 # print(sequence_loss) # Tensor("loss/sequence_loss/truediv:0", shape=(), dtype=float32, device=/device:CPU:0)
                 loss = tf.reduce_mean(sequence_loss)
-            elif mode == 1:
-                print('Not implemented yet')
-            elif mode == 2:
+            elif mode == 1: # Many to many with price
+                weights = tf.ones([batch_size, self.sequence_length])
+                sequence_loss = tf.contrib.seq2seq.sequence_loss(logits=logits, targets=self.y, weights=weights)
+                loss = tf.reduce_mean(sequence_loss)
+            elif mode == 2: # Many to one with up / down
                 loss = tf.reduce_mean(
                     tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=logits))
+            elif mode == 3: # many to one with price
+                loss = tf.reduce_mean(
+                    tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=logits))
+            elif mode == 5: # Multi loss of many to many with up / down + price
+                weights = tf.ones([batch_size, self.sequence_length])
+                sequence_loss = tf.contrib.seq2seq.sequence_loss(logits=logits, targets=self.y, weights=weights)
+                loss1 = tf.reduce_mean(sequence_loss)
+
+                weights = tf.ones([batch_size, self.sequence_length])
+                sequence_loss = tf.contrib.seq2seq.sequence_loss(logits=logits, targets=self.y, weights=weights)
+                loss2 = tf.reduce_mean(sequence_loss)
+
+                loss = tf.group(loss1, loss2)
+            elif mode == 6: # Multi loss of many to one with up / down + price
+                loss1 = tf.reduce_mean(
+                    tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=logits))
+
+                loss2 = tf.reduce_mean(
+                    tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=logits))
+
+                loss = tf.group(loss1, loss2)
             else:
                 print('Wrong mode option')
 
