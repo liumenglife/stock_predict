@@ -1,5 +1,5 @@
 import tensorflow as tf
-from .model_base import ModelBase
+from src.model_base import ModelBase
 
 
 class RNN(ModelBase):

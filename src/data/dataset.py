@@ -7,7 +7,7 @@ from .preprocess import PreProcess
 
 class DataSet:
     def __init__(self, data_path, data_status=0, output_path=None,
-                 label_price=0, mode=2, sequence_length=5, label_term=10):
+                 label_price=0, mode=2, sequence_length=5, label_term=10, normalize=True):
         """
 
         :param data_path:
@@ -41,28 +41,41 @@ class DataSet:
             # Make targets (Y)
             self.queries, self.labels = PreProcess.make_dataset(sequence_data=sequence_data, end_data=end_data,
                                                                 output_path=output_path, label_price=label_price,
-                                                                label_term=label_term, mode=mode)
+                                                                label_term=label_term, mode=mode, normalize=normalize)
         elif data_status == 1:
             # Load sequenced data
             data_list = sorted([f for f in listdir(self.data_path)
-                                     if not isfile(join(self.data_path, f)) and '.DS_Store' not in f])
+                                if isfile(join(self.data_path, f)) and '.DS_Store' not in f])
+            # print(data_list)
+
             sequence_data = None
             end_data = None
 
             for data in data_list:
                 all_data = np.load(join(self.data_path, data))
+                # if sequence_data is None:
+                #     sequence_data = all_data[0]  # list of sequence data
+                #     end_data = all_data[1]  # list of end data, will be transformed as label
+                # else:
+                #     sequence_data = np.concatenate([sequence_data, all_data[0]], axis=0)
+                #     end_data = np.concatenate([end_data, all_data[0]], axis=0)
                 if sequence_data is None:
-                    sequence_data = all_data[0]  # list of sequence data
-                    end_data = all_data[1]  # list of end data, will be transformed as label
+                    sequence_data = all_data[0].tolist()  # list of sequence data
+                    end_data = all_data[1] .tolist() # list of end data, will be transformed as label
                 else:
-                    sequence_data = np.concatenate([sequence_data, all_data[0]], axis=0)
-                    end_data = np.concatenate([end_data, all_data[0]], axis=0)
+                    sequence_data.extend(all_data[0].tolist())
+                    end_data.extend(all_data[1].tolist())
+
+            # print(type(sequence_data))
+            # print(type(end_data))
+            # print(len(sequence_data))
+            # print(len(end_data))
 
             # Make targets (Y)
             self.queries, self.labels = PreProcess.make_dataset(sequence_data=sequence_data, end_data=end_data,
                                                                 output_path=output_path, label_price=label_price,
-                                                                label_term=label_term, mode=mode)
-        else:
+                                                                label_term=label_term, mode=mode, normalize=normalize)
+        elif data_status == 2:
             # all_data = np.load(data_path).tolist()
             # self.queries = all_data['queries'] # list of input data
             # self.labels = all_data['labels'] # list of label data
@@ -80,6 +93,9 @@ class DataSet:
                     self.queries = np.concatenate([self.queries, data['queries']], axis=0)
                     self.labels = np.concatenate([self.labels, data['labels']], axis=0)
 
+        else:
+            self.queries = np.array(list())
+            self.labels = np.array(list())
 
         print(len(self.queries))
         print(len(self.labels))

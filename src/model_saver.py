@@ -4,9 +4,6 @@ from tensorflow import gfile
 
 class ModelSaver:
 
-    def __init__(self):
-        self.saver = None
-
     def restore_checkpoint(self, directory):
         """
         Load the saved model from cpkt
@@ -42,7 +39,7 @@ class ModelSaver:
 
         self.saver = tf.train.Saver()
 
-    def session_initialize(self, graph=None):
+    def session_initialize(self, graph=None, use_gpu=False):
         """
         Initializes session
 
@@ -50,7 +47,7 @@ class ModelSaver:
         :return:
         """
         # Summary
-        if self.cpu_only == True:
+        if use_gpu is False:
             tf_config = tf.ConfigProto(device_count={'GPU': 0})
         else:
             tf_config = tf.ConfigProto(allow_soft_placement=True)
@@ -63,8 +60,7 @@ class ModelSaver:
 
         return self.sess
 
-    def _model_init(self, model, gpu, rnn_type, mode, num_layers, sequence_length, use_bidirectional, dim_hidden,
-                    num_labels, feature_length, attention_type, directory=None):
+    def _model_init(self, model, hparams, directory=None):
         """
         Initiate model with session and graph
 
@@ -73,20 +69,14 @@ class ModelSaver:
         """
         g = tf.Graph()
         with g.as_default():
-            if self.cpu_only == True:
+            if hparams.use_gpu is False:
                 with tf.device('/cpu:0'):
-                    self.model = model(mode=mode, rnn_type=rnn_type, num_layers=num_layers,
-                                       sequence_length=sequence_length, feature_length=feature_length,
-                                       use_bidirectional=use_bidirectional, dim_hidden=dim_hidden,
-                                       num_labels=num_labels, attention_type=attention_type)
+                    self.model = model(hparams=hparams)
             else:
-                with tf.device('/gpu:' + str(gpu)):
-                    self.model = model(mode=mode, rnn_type=rnn_type, num_layers=num_layers,
-                                       sequence_length=sequence_length, feature_length=feature_length,
-                                       use_bidirectional=use_bidirectional, dim_hidden=dim_hidden,
-                                       num_labels=num_labels, attention_type=attention_type)
+                with tf.device('/gpu:' + str(hparams.gpu)):
+                    self.model = model(hparams=hparams)
 
-        self.sess = self.session_initialize(graph=g)
+        self.sess = self.session_initialize(graph=g, use_gpu=hparams.use_gpu)
         with self.sess.as_default():
             with g.as_default():
                 self._create_saver()
