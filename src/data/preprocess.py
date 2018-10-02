@@ -72,7 +72,7 @@ class PreProcess:
         return all_sequence_data, all_end_data
 
     @staticmethod
-    def make_dataset(sequence_data, end_data, output_path, label_price, label_term, mode, normalize):
+    def make_dataset(sequence_data, end_data, output_path, label_price, label_term, mode, normalize, label_dict=dict()):
         """
         Make labels related to the given sequence data
 
@@ -88,18 +88,6 @@ class PreProcess:
 
         queries = list()
         labels = list()
-
-        # Slice range from -30 to 30 with label term
-        label_dict = dict()
-        label_range = [-30, 30]  # min max
-        num_labels = int((label_range[1] - label_range[0]) / label_term)
-        prev = label_range[0]
-        for i in range(num_labels):
-            label_dict[i] = [prev, prev + label_term]
-            prev += label_term
-        label_dict[num_labels - 1][1] = label_range[1] + 1
-
-        print('Label Range:', label_dict)
 
         # date, final_price, compare_to_prior, start_price, highest_price, lowest_price, num_of_traded
         # Added Features: None yet
@@ -168,8 +156,8 @@ class PreProcess:
                     print('Saving Error!')
                     print(e)
 
-        a = datetime.now() - a
-        print('Elapsed time:', a)
+        # a = datetime.now() - a
+        # print('Elapsed time:', a)
         return queries, labels
 
     @staticmethod

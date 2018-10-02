@@ -30,91 +30,84 @@ class DataSet:
 
         self.sequence_length = sequence_length
         self.label_term = label_term
+        self.normalize = normalize
+
+        self.label_dict = self.get_label_dict()
 
         print('Loading stock data by compnay name')
         if data_status == 0:
             # Make sequence data
-            sequence_data, end_data = PreProcess.make_sequence_data(input_path=data_path,
-                                                                    output_path=output_path,
-                                                                    sequence_length=sequence_length)
-
-            # Make targets (Y)
-            self.queries, self.labels = PreProcess.make_dataset(sequence_data=sequence_data, end_data=end_data,
-                                                                output_path=output_path, label_price=label_price,
-                                                                label_term=label_term, mode=mode, normalize=normalize)
+            self.sequence_data, self.end_data = PreProcess.make_sequence_data(input_path=data_path,
+                                                                              output_path=output_path,
+                                                                              sequence_length=sequence_length)
         elif data_status == 1:
             # Load sequenced data
             data_list = sorted([f for f in listdir(self.data_path)
                                 if isfile(join(self.data_path, f)) and '.DS_Store' not in f])
             # print(data_list)
 
-            sequence_data = None
-            end_data = None
+            self.sequence_data = None
+            self.end_data = None
 
             for data in data_list:
                 all_data = np.load(join(self.data_path, data))
-                # if sequence_data is None:
-                #     sequence_data = all_data[0]  # list of sequence data
-                #     end_data = all_data[1]  # list of end data, will be transformed as label
-                # else:
-                #     sequence_data = np.concatenate([sequence_data, all_data[0]], axis=0)
-                #     end_data = np.concatenate([end_data, all_data[0]], axis=0)
-                if sequence_data is None:
-                    sequence_data = all_data[0].tolist()  # list of sequence data
-                    end_data = all_data[1] .tolist() # list of end data, will be transformed as label
+                if self.sequence_data is None:
+                    self.sequence_data = all_data[0].tolist()  # list of sequence data
+                    self.end_data = all_data[1].tolist() # list of end data, will be transformed as label
                 else:
-                    sequence_data.extend(all_data[0].tolist())
-                    end_data.extend(all_data[1].tolist())
-
-            # print(type(sequence_data))
-            # print(type(end_data))
-            # print(len(sequence_data))
-            # print(len(end_data))
-
-            # Make targets (Y)
-            self.queries, self.labels = PreProcess.make_dataset(sequence_data=sequence_data, end_data=end_data,
-                                                                output_path=output_path, label_price=label_price,
-                                                                label_term=label_term, mode=mode, normalize=normalize)
-        elif data_status == 2:
-            # all_data = np.load(data_path).tolist()
-            # self.queries = all_data['queries'] # list of input data
-            # self.labels = all_data['labels'] # list of label data
-            data_list = sorted([f for f in listdir(self.data_path)
-                                if isfile(join(self.data_path, f)) and '.DS_Store' not in f])
-            self.queries = None
-            self.labels = None
-
-            for data_name in data_list:
-                data = np.load(join(self.data_path, data_name)).tolist()
-                if self.queries is None and self.labels is None:
-                    self.queries = data['queries']
-                    self.labels = data['labels']
-                else:
-                    self.queries = np.concatenate([self.queries, data['queries']], axis=0)
-                    self.labels = np.concatenate([self.labels, data['labels']], axis=0)
+                    self.sequence_data.extend(all_data[0].tolist())
+                    self.end_data.extend(all_data[1].tolist())
 
         else:
-            self.queries = np.array(list())
-            self.labels = np.array(list())
+            self.sequence_data = np.array(list())
+            self.end_data = np.array(list())
+            # print('Data status not provided !')
 
-        print(len(self.queries))
-        print(len(self.labels))
+        print('Number of data: %i' % (len(self.sequence_data)))
+
+    def get_label_dict(self):
+        label_dict = dict()
+        label_range = [-30, 30]  # min max
+        num_labels = int((label_range[1] - label_range[0]) / self.label_term)
+        prev = label_range[0]
+        for i in range(num_labels):
+            label_dict[i] = [prev, prev + self.label_term]
+            prev += self.label_term
+        label_dict[num_labels - 1][1] = label_range[1] + 1
+
+        print('Label Range:', label_dict)
+
+        return label_dict
 
     def __len__(self):
-        return len(self.queries)
+        return len(self.sequence_data)
 
     def __getitem__(self, idx):
-        return self.queries[idx], self.labels[idx]
+
+        queries, labels = PreProcess.make_dataset(sequence_data=self.sequence_data[idx], end_data=self.end_data[idx],
+                                                  output_path=None, label_price=None, label_term=self.label_term,
+                                                  mode=self.mode, normalize=self.normalize, label_dict=self.label_dict)
+
+        return queries, labels
 
     def reshuffle(self):
-        combined = list(zip(self.queries, self.labels))
+        combined = list(zip(self.sequence_data, self.end_data))
         random.shuffle(combined)
-        self.queries, self.labels = zip(*combined)
+        self.sequence_data, self.end_data = zip(*combined)
 
 
-
-# class DataSet_old:
-#     def __init__(self, data_path, mode=2, sequence_length=5, label_term=10):
+# class DataSet:
+#     def __init__(self, data_path, data_status=0, output_path=None,
+#                  label_price=0, mode=2, sequence_length=5, label_term=10, normalize=True):
+#         """
+#
+#         :param data_path:
+#         :param data_status: data's status 0 - complete raw data, 1 - sequenced data, 2 - sequenced with label data
+#         :param label_price: label classifier or actual price finder?
+#         :param mode: 0 Many to many
+#         :param sequence_length:
+#         :param label_term:
+#         """
 #         # Current data format
 #         # date, final_price, compare_to_prior, start_price, highest_price, lowest_price, num_of_traded
 #
@@ -123,152 +116,85 @@ class DataSet:
 #             return
 #
 #         self.data_path = data_path
-#         self.data_list = sorted([f.replace('.npy', '') for f in listdir(self.data_path)
-#                                  if isfile(join(self.data_path, f)) and '.DS_Store' not in f])
 #
 #         self.mode = mode # 0 Many to many, 1 Many to one and many to many, 2 Many to one
 #
 #         self.sequence_length = sequence_length
 #         self.label_term = label_term
 #
-#         self.all_data_dict = dict()
-#
 #         print('Loading stock data by compnay name')
-#         for fname in self.data_list:
-#             data = np.load(join(self.data_path, fname + '.npy'))
+#         if data_status == 0:
+#             # Make sequence data
+#             sequence_data, end_data = PreProcess.make_sequence_data(input_path=data_path,
+#                                                                     output_path=output_path,
+#                                                                     sequence_length=sequence_length)
 #
-#             for d in data:
-#                 d[0] = int(d[0].replace('.', ''))
-#                 for i in range(1, len(d)):
-#                     d[i] = int(d[i])
+#             # Make targets (Y)
+#             self.queries, self.labels = PreProcess.make_dataset(sequence_data=sequence_data, end_data=end_data,
+#                                                                 output_path=output_path, label_price=label_price,
+#                                                                 label_term=label_term, mode=mode, normalize=normalize)
+#         elif data_status == 1:
+#             # Load sequenced data
+#             data_list = sorted([f for f in listdir(self.data_path)
+#                                 if isfile(join(self.data_path, f)) and '.DS_Store' not in f])
+#             # print(data_list)
 #
-#             self.all_data_dict[fname] = data
-#             # print(len(data))
+#             sequence_data = None
+#             end_data = None
 #
-#             # self.queries = np.load(join(self.data_path, fname + '.npy'))
-#             # self.labels = np.load(join(self.data_path, fname + '.npy'))
+#             for data in data_list:
+#                 all_data = np.load(join(self.data_path, data))
+#                 # if sequence_data is None:
+#                 #     sequence_data = all_data[0]  # list of sequence data
+#                 #     end_data = all_data[1]  # list of end data, will be transformed as label
+#                 # else:
+#                 #     sequence_data = np.concatenate([sequence_data, all_data[0]], axis=0)
+#                 #     end_data = np.concatenate([end_data, all_data[0]], axis=0)
+#                 if sequence_data is None:
+#                     sequence_data = all_data[0].tolist()  # list of sequence data
+#                     end_data = all_data[1] .tolist() # list of end data, will be transformed as label
+#                 else:
+#                     sequence_data.extend(all_data[0].tolist())
+#                     end_data.extend(all_data[1].tolist())
 #
-#         print('Reformat by given sequence length')
-#         self.queries, self.labels = self._make_dataset(sequence_length=self.sequence_length, label_term=self.label_term)
-#         print(self.labels)
-#         print(type(self.labels))
-#         print(self.labels[0])
-#         print(type(self.labels[0]))
-#         if self.mode == 2:
-#             self.labels = self.labels[:, -1]
+#             # print(type(sequence_data))
+#             # print(type(end_data))
+#             # print(len(sequence_data))
+#             # print(len(end_data))
 #
-#         print(len(self.queries))
-#         print(len(self.labels))
+#             # Make targets (Y)
+#             self.queries, self.labels = PreProcess.make_dataset(sequence_data=sequence_data, end_data=end_data,
+#                                                                 output_path=output_path, label_price=label_price,
+#                                                                 label_term=label_term, mode=mode, normalize=normalize)
+#         elif data_status == 2:
+#             # all_data = np.load(data_path).tolist()
+#             # self.queries = all_data['queries'] # list of input data
+#             # self.labels = all_data['labels'] # list of label data
+#             data_list = sorted([f for f in listdir(self.data_path)
+#                                 if isfile(join(self.data_path, f)) and '.DS_Store' not in f])
+#             self.queries = None
+#             self.labels = None
+#
+#             for data_name in data_list:
+#                 data = np.load(join(self.data_path, data_name)).tolist()
+#                 if self.queries is None and self.labels is None:
+#                     self.queries = data['queries']
+#                     self.labels = data['labels']
+#                 else:
+#                     self.queries = np.concatenate([self.queries, data['queries']], axis=0)
+#                     self.labels = np.concatenate([self.labels, data['labels']], axis=0)
+#
+#         else:
+#             self.queries = np.array(list())
+#             self.labels = np.array(list())
+#
+#         print('Length of queries: %i Length of labels: %i' % (len(self.queries), len(self.labels)))
 #
 #     def __len__(self):
 #         return len(self.queries)
 #
 #     def __getitem__(self, idx):
 #         return self.queries[idx], self.labels[idx]
-#
-#     def _min_max_scaler(self, data):
-#         ''' Min Max Normalization
-#         Parameters
-#         ----------
-#         data : numpy.ndarray
-#             input data to be normalized
-#             shape: [Batch size, dimension]
-#         Returns
-#         ----------
-#         data : numpy.ndarry
-#             normalized data
-#             shape: [Batch size, dimension]
-#         References
-#         ----------
-#         .. [1] http://sebastianraschka.com/Articles/2014_about_feature_scaling.html
-#         '''
-#         numerator = data - np.min(data, 0)
-#         denominator = np.max(data, 0) - np.min(data, 0)
-#         # noise term prevents the zero division
-#         return numerator / (denominator + 1e-7)
-#
-#     def _make_dataset(self, sequence_length, label_term):
-#         """
-#         Reform the sequential data and set into self.queries and labels
-#
-#         :return: queries and labels
-#         """
-#
-#         queries = list()
-#         labels = list()
-#
-#         # Slice range from -30 to 30 with label term
-#         label_dict = dict()
-#         label_range = [-30, 30] # min max
-#         num_labels = int((label_range[1] - label_range[0]) / label_term)
-#         prev = label_range[0]
-#         for i in range(num_labels):
-#             label_dict[i] = [prev, prev + label_term]
-#             prev += label_term
-#         label_dict[num_labels - 1][1] = label_range[1] + 1
-#         # label_dict[0] = [-30, 0]
-#         # label_dict[1] = [0, 1]
-#         # label_dict[2] = [1, 31]
-#
-#
-#         print('Label Range:', label_dict)
-#
-#         # date, final_price, compare_to_prior, start_price, highest_price, lowest_price, num_of_traded
-#         # Added Features: None yet
-#         # Label:
-#         for key, values in self.all_data_dict.items():
-#             # sort values by date
-#             values = sorted(values, key=lambda t: t[0])
-#
-#             # add prior day feature
-#
-#             # add key as feature
-#
-#             # Make sets of data in sequence_length
-#
-#             for pos in range(len(values)):
-#                 if pos + sequence_length >= len(values):
-#                     # print('pos + sequence_length: %i and len(values): %i' % (pos + sequence_length, len(values)))
-#                     break
-#
-#                 # Values of length of sequence
-#                 v = values[pos: pos + sequence_length + 1]
-#
-#                 # If Stock data jumps up because of some reason (ex, stock merge), continue to make next
-#                 # if self._check_validation(v, label_dict) is not True:
-#                 #     # print('pos %i IS NOT VALID' % (pos))
-#                 #     continue
-#                 l = list()
-#                 for idx, value in enumerate(v):
-#                     if idx == len(v) - 1:  # length 21 means idx 20, so when idx == 19 is the last one can be compared
-#                         break
-#                     else:
-#                         r = int(float(
-#                             v[idx + 1][1] * 100 / v[idx][1]) - 100)  # Increase/decrease in ratio compare to d and d+1
-#
-#                     lf = -1
-#                     for idx2, label in label_dict.items():
-#                         if label[0] <= r < label[1]:
-#                             lf = idx2
-#                             l.append(lf)
-#                             break
-#
-#                     if lf == -1:  # Not found in proper range
-#                         break
-#
-#                 if len(l) != sequence_length:
-#                     continue
-#
-#                 v = v[:-1]
-#                 v = self._min_max_scaler(v)
-#                 queries.append(v)
-#                 labels.append(l)
-#
-#         queries = np.array(queries)
-#         labels = np.array(labels)
-#         # labels = np.array([[np.int64(x)] for x in labels])
-#
-#         return queries, labels
 #
 #     def reshuffle(self):
 #         combined = list(zip(self.queries, self.labels))
