@@ -1,7 +1,5 @@
 from src.data.data_loader import DataLoader
-# from .models.rnn import RnnAttnModel
 from src.models.rnn import RNN
-from src.models.rnn_new import RNN as RNN_new
 import sys
 from .model_saver import ModelSaver
 from os.path import join, exists
@@ -21,15 +19,13 @@ class Train(ModelSaver):
         if model_name == 'rnn':
             # self._model = RnnAttnModel
             model = RNN
-        elif model_name == 'rnn_new':
-            model = RNN_new
         else:
             print('No matching model found')
             sys.exit()
 
         return model
 
-    def training(self, data_path, output_path, model_name, hparams=None):
+    def training(self, data_path, test_path, output_path, model_name, hparams=None):
 
         self._model = self.get_model(model_name)
 
@@ -41,10 +37,9 @@ class Train(ModelSaver):
         epochs = hparams.epochs
         batch_size = hparams.batch_size
         sequence_length = hparams.sequence_length
-        train_test_ratio = hparams.train_test_ratio
         learning_rate = hparams.learning_rate
 
-        data_loader = DataLoader(data_path=data_path, output_path=output_path, hparams=hparams)
+        data_loader = DataLoader(data_path=data_path, test_path=test_path, output_path=output_path, hparams=hparams)
 
         label_list = data_loader.label_list
         hparams.update(
@@ -62,11 +57,12 @@ class Train(ModelSaver):
         early_stop_count = 0
 
         for epoch in range(epochs):
+
             data_loader.reshuffle()
             avg_loss = 0.0
             avg_accuracy = 0.0
-
             batch_iter_max = len(data_loader.dataset) / batch_size + 1
+
             for i, (data, labels) in enumerate(data_loader.batch_loader(data_loader.dataset, batch_size)):
                 # print(labels)
                 # print(data, labels)
@@ -93,30 +89,26 @@ class Train(ModelSaver):
 
                 if global_step % (print_step_interval * 10) == 0:
 
-                    step_time = datetime.now()
+                    step_t_time = datetime.now()
+                    t_avg_loss = 0.0
+                    t_avg_accuracy = 0.0
+                    t_batch_iter_max = len(data_loader.test_dataset) / batch_size + 1
 
-                    if train_test_ratio != 0:
-                        t_avg_loss = 0.0
-                        t_avg_accuracy = 0.0
-                        t_batch_iter_max = len(data_loader.test_dataset) / batch_size + 1
+                    for t_i, (t_data, t_labels) in enumerate(data_loader.batch_loader(data_loader.test_dataset, batch_size)):
+                        accuracy, logits, loss = sess.run([model.accuracy, model.logits, model.loss],
+                                                          feed_dict={model.x: t_data, model.y: t_labels,
+                                                                     model.dropout_keep_prob: 1.0})
 
-                        for t_i, (t_data, t_labels) in enumerate(data_loader.batch_loader(data_loader.test_dataset, batch_size)):
-                            accuracy, logits, loss = sess.run([model.accuracy, model.logits, model.loss],
-                                                              feed_dict={model.x: t_data, model.y: t_labels,
-                                                                         model.dropout_keep_prob: 1.0})
+                        t_avg_loss += float(loss)
+                        t_avg_accuracy += float(accuracy)
 
-                            t_avg_loss += float(loss)
-                            t_avg_accuracy += float(accuracy)
+                    t_avg_loss = float(t_avg_loss / t_batch_iter_max)
+                    t_avg_accuracy = float(t_avg_accuracy / t_batch_iter_max)
+                    current_accuracy = t_avg_accuracy
 
-                        t_avg_loss = float(t_avg_loss / t_batch_iter_max)
-                        t_avg_accuracy = float(t_avg_accuracy / t_batch_iter_max)
-                        current_accuracy = t_avg_accuracy
-
-                        print('[global_step-%i] duration: %is test_loss: %f accuracy: %f' % (global_step,
-                                                                                             (datetime.now() - step_time).seconds,
-                                                                                             t_avg_loss, t_avg_accuracy))
-                    else:
-                        current_accuracy = avg_accuracy
+                    print('[global_step-%i] duration: %is test_loss: %f accuracy: %f' % (global_step,
+                                                                                         (datetime.now() - step_t_time).seconds,
+                                                                                         t_avg_loss, t_avg_accuracy))
 
                     if highest_accuracy < current_accuracy:
                         print('Saving model...')
@@ -134,8 +126,7 @@ class Train(ModelSaver):
                     step_time = datetime.now()
 
             if early_stop_count > 2:
-                learning_rate = learning_rate * 0.95
-
+                learning_rate = learning_rate * 0.90
 
             if early_stop_count > 5:
                 print('Early stopped !')
@@ -152,7 +143,7 @@ class Train(ModelSaver):
 
         batch_size = hparams.batch_size
 
-        data_loader = DataLoader(data_path=data_path, hparams=hparams)
+        data_loader = DataLoader(data_path=data_path, test_path=data_path, hparams=hparams)
 
         label_list = data_loader.label_list
         hparams.update(
@@ -200,5 +191,52 @@ class Train(ModelSaver):
         print('[Test Accuracy] duration: %is test_loss: %f accuracy: %f' % ((datetime.now() - cur_time).seconds,
                                                                             t_avg_loss, t_avg_accuracy))
         # print("Precision: %f Recall: %f f1: %f n_accuracy: %f" % (avg_precision, avg_recall, avg_f1, avg_n_accuracy))
+        # print(y_correct)
+        # print('')
+        # print(y_pred)
+        y_correct = [a[0] for a in y_correct]
+        y_pred = [a[0] for a in y_pred]
 
         print(classification_report(y_correct, y_pred))
+
+    def pred_info(self, model_path, model_name, data_path, output_path=None, hparams=None):
+        # get outputs
+
+        self._model = self.get_model(model_name)
+
+        default_hparams = self._model.get_default_params()
+        if hparams is not None:
+            default_hparams.update_merge(hparams=hparams)
+            hparams = default_hparams
+
+        batch_size = hparams.batch_size
+
+        data_loader = DataLoader(data_path=data_path, test_path=data_path, hparams=hparams)
+
+        label_list = data_loader.label_list
+        hparams.update(
+            num_labels=len(label_list)
+        )
+
+        model, sess, g = self._model_init(model=self._model, hparams=hparams, directory=model_path)
+
+        cur_time = datetime.now()
+
+        total_outputs = list()
+        total_true_false = list()
+        total_pred = list()
+
+        for t_i, (t_data, t_labels) in enumerate(data_loader.batch_loader(data_loader.dataset, batch_size)):
+            outputs, true_false, pred = sess.run([model.outputs, model.true_false, model.pred],
+                               feed_dict={model.x: t_data, model.y: t_labels, model.dropout_keep_prob: 1.0})
+            outputs = outputs[:, -1] # take only the last one with the size same as hidden dim
+
+            total_outputs.extend(outputs)
+            total_true_false.extend(true_false)
+            total_pred.extend(pred)
+
+        if output_path is not None:
+            # np.save(total_outputs, total_outputs)
+            print('cannot save currently')
+
+        return total_outputs

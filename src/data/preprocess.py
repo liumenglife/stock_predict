@@ -135,6 +135,10 @@ class PreProcess:
             # labels = np.reshape(labels, len(labels))
             # print(labels[:10])
 
+            # 1d to 2d array
+            labels = [[a] for a in labels]
+            labels = np.array(labels)
+
         max_data_length = 100000
 
         if output_path is not None:

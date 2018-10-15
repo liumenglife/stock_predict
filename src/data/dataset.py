@@ -63,7 +63,7 @@ class DataSet:
             self.end_data = np.array(list())
             # print('Data status not provided !')
 
-        print('Number of data: %i' % (len(self.sequence_data)))
+        print('Number of data: %i, %i' % (len(self.sequence_data), len(self.sequence_data)))
 
     def get_label_dict(self):
         label_dict = dict()

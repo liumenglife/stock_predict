@@ -8,12 +8,11 @@ class DataLoader:
 
     # def __init__(self, data_path, mode, output_path=None, data_status=2, sequence_length=10, train_test_ratio=0.1,
     #              label_term=10):
-    def __init__(self, data_path, hparams, output_path=None):
+    def __init__(self, data_path, test_path, hparams, output_path=None):
 
         data_status = hparams.data_status
         mode = hparams.mode
         sequence_length = hparams.sequence_length
-        train_test_ratio = hparams.train_test_ratio
         label_term = hparams.label_term
         normalize = hparams.normalize
 
@@ -22,24 +21,26 @@ class DataLoader:
 
         self.label_list = self.dataset.label_dict.keys()
 
-        if train_test_ratio != 0:
-            self.test_dataset = DataSet(data_path=data_path, output_path=output_path, data_status=-1,
-                               mode=mode, sequence_length=sequence_length, label_term=label_term, normalize=normalize)
-            self.test_dataset.sequence_data = None
-            self.test_dataset.end_data = None
-
-            x_train, x_test, y_train, y_test \
-                = train_test_split(self.dataset.sequence_data, self.dataset.end_data, test_size=train_test_ratio)
-
-            self.test_dataset.sequence_data = x_test
-            self.test_dataset.end_data = y_test
-
-        else:
-            x_train = self.dataset.sequence_data
-            y_train = self.dataset.end_data
-
-        self.dataset.queries = x_train
-        self.dataset.labels = y_train
+        if data_path != test_path:
+            self.test_dataset = DataSet(data_path=test_path, output_path=output_path + '_test', data_status=data_status,
+                                        mode=mode, sequence_length=sequence_length, label_term=label_term,
+                                        normalize=normalize)
+        else: # test mode
+            # self.test_dataset = DataSet(data_path=data_path, output_path=output_path, data_status=-1,
+            #                             mode=mode, sequence_length=sequence_length, label_term=label_term,
+            #                             normalize=normalize)
+            # self.test_dataset.sequence_data = None
+            # self.test_dataset.end_data = None
+            #
+            # x_train, x_test, y_train, y_test \
+            #     = train_test_split(self.dataset.sequence_data, self.dataset.end_data, test_size=0.1)
+            #
+            # self.test_dataset.sequence_data = x_test
+            # self.test_dataset.end_data = y_test
+            #
+            # self.dataset.queries = x_train
+            # self.dataset.labels = y_train
+            print('test mode')
 
     def reshuffle(self):
         self.dataset.reshuffle()

@@ -26,7 +26,7 @@ class RNN(ModelBase):
         if self.mode == 0:
             self.y = tf.placeholder(tf.int64, shape=[None, self.sequence_length], name='y')
         elif self.mode == 2:
-            self.y = tf.placeholder(tf.int64, shape=[None], name='y')
+            self.y = tf.placeholder(tf.int64, shape=[None, 1], name='y')
 
         # self.batch_size = tf.placeholder(tf.int32, shape=[None], name='sequence_length')
         self.learning_rate = tf.placeholder(tf.float32, name='learning_rate')
@@ -52,8 +52,8 @@ class RNN(ModelBase):
         self.logits = self.build_logits(self.mode, self.outputs, batch_size)
         self.loss = self.build_loss(self.mode, self.logits, batch_size)
         self.train = self.optimize(learning_rate=self.learning_rate, loss=self.loss)
-        self.pred, self.accuracy, self.correct_count, self.precision, self.recall, self.f1, self.n_accuracy \
-            = self.evaluate(self.mode, self.logits, self.y)
+        self.pred, self.accuracy, self.correct_count, self.precision, self.recall, self.f1, self.n_accuracy,\
+            self.true_false = self.evaluate(self.mode, self.logits, self.y)
 
     def build_rnn_cell_stack(self, rnn_type, num_layers, dim_hidden, keep_prob):
         cell_type = {
@@ -136,6 +136,7 @@ class RNN(ModelBase):
             if mode == 2:
                 encoder_outputs = encoder_outputs[:, -1]
                 encoder_states = encoder_states[:, -1]
+                # encoder_outputs
 
             return encoder_outputs, encoder_states
 
@@ -167,18 +168,19 @@ class RNN(ModelBase):
             elif mode == 1:
                 print('Not implemented yet')
             elif mode == 2: # Many to one
-                w = self.weight_variable(shape=[outputs.shape[1].value, self.num_labels])
-                b = self.bias_variable(shape=[self.num_labels])
+                # old
+                # w = self.weight_variable(shape=[outputs.shape[1].value, self.num_labels])
+                # b = self.bias_variable(shape=[self.num_labels])
+                #
+                # logits = tf.matmul(outputs, w) + b
 
-                # self.w = tf.get_variable(dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer(),
-                #                           shape=[self.dim_hidden, self.num_labels], name='weight_final')
-                # self.b = tf.get_variable(dtype=tf.float32, initializer=tf.contrib.layers.xavier_initializer(),
-                #                           shape=[self.num_labels], name='bias_final')
+                # new
+                X_for_fc = tf.reshape(outputs, [-1, self.dim_hidden])
+                outputs2 = tf.contrib.layers.fully_connected(
+                    inputs=X_for_fc, num_outputs=self.num_labels, activation_fn=None)
 
-                logits = tf.matmul(outputs, w) + b
+                logits = tf.reshape(outputs2, [batch_size, 1, self.num_labels])
 
-                # X_for_fc = tf.reshape(self.outputs, [-1, dim_hidden])
-                # self.logits = tf.contrib.layers.fully_connected(X_for_fc, self.num_labels, activation_fn=None)
             else:
                 print('Wrong mode option')
 
@@ -204,8 +206,14 @@ class RNN(ModelBase):
                 loss = tf.reduce_mean(sequence_loss)
 
             elif mode == 2: # Many to one with up / down
-                loss = tf.reduce_mean(
-                    tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=logits))
+                # old
+                # loss = tf.reduce_mean(
+                #     tf.nn.sparse_softmax_cross_entropy_with_logits(labels=self.y, logits=logits))
+
+                # new
+                weights = tf.ones([batch_size, 1])
+                sequence_loss = tf.contrib.seq2seq.sequence_loss(logits=logits, targets=self.y, weights=weights)
+                loss = tf.reduce_mean(sequence_loss)
 
             elif mode == 3: # many to one with price
                 loss = tf.reduce_mean(
@@ -252,11 +260,17 @@ class RNN(ModelBase):
                 pred = pred[:, -1]
                 # print(self.y) # Tensor("y:0", shape=(?, 10=sequence_length), dtype=int64, device=/device:CPU:0)
             elif mode == 2:
-                pred = tf.argmax(logits, 1)
+                # old
+                # pred = tf.argmax(logits, 1)
                 # print(self.pred) # Tensor("evaluation/ArgMax:0", shape=(?,), dtype=int64)
                 # print(self.y) # Tensor("y:0", shape=(?, 1), dtype=int64)
 
-            accuracy = tf.reduce_mean(tf.cast(tf.equal(pred, y), tf.float32))
+                # new
+                pred = tf.argmax(logits, axis=2)
+                pred = pred[:, -1]
+
+            true_false = tf.equal(pred, y)
+            accuracy = tf.reduce_mean(tf.cast(true_false, tf.float32))
 
             tp = tf.count_nonzero(pred * y, dtype=tf.float32)
             tn = tf.count_nonzero((pred - 1) * (y - 1), dtype=tf.float32)
@@ -270,7 +284,7 @@ class RNN(ModelBase):
 
             correct_count = tf.reduce_sum(tf.to_float(tf.equal(pred, y)), axis=0)
 
-        return pred, accuracy, correct_count, precision, recall, f1, n_accuracy
+        return pred, accuracy, correct_count, precision, recall, f1, n_accuracy, true_false
 
     @staticmethod
     def get_default_params():
@@ -289,7 +303,6 @@ class RNN(ModelBase):
             batch_size          = 100,
             feature_length      = 35,
             sequence_length     = 20,
-            train_test_ratio    = 0.1,
             use_bidirectional   = True,
             dim_hidden          = 20,
             label_term          = 30,
