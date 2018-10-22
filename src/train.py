@@ -16,16 +16,19 @@ class Train(ModelSaver):
         self._model = None
 
     def get_model(self, model_name):
-        if model_name == 'rnn':
-            # self._model = RnnAttnModel
-            model = RNN
-        else:
+        models = {
+            'rnn': RNN
+        }
+
+        if model_name not in models.keys():
             print('No matching model found')
             sys.exit()
 
+        model = models[model_name]
+
         return model
 
-    def training(self, data_path, test_path, output_path, model_name, hparams=None):
+    def train(self, data_path, test_path, output_path, model_name, hparams=None):
 
         self._model = self.get_model(model_name)
 
@@ -33,10 +36,13 @@ class Train(ModelSaver):
         if hparams is not None:
             default_hparams.update_merge(hparams=hparams)
             hparams = default_hparams
+        else:
+            hparams = default_hparams
+
+        model, sess, g = self._model_init(model=self._model, hparams=hparams)
 
         epochs = hparams.epochs
         batch_size = hparams.batch_size
-        sequence_length = hparams.sequence_length
         learning_rate = hparams.learning_rate
 
         data_loader = DataLoader(data_path=data_path, test_path=test_path, output_path=output_path, hparams=hparams)
@@ -46,8 +52,6 @@ class Train(ModelSaver):
             num_labels = len(label_list)
         )
         print('Label Length: %i' % (len(label_list)))
-
-        model, sess, g = self._model_init(model=self._model, hparams=hparams)
 
         global_step = 0
         print_step_interval = 500
@@ -61,19 +65,15 @@ class Train(ModelSaver):
             data_loader.reshuffle()
             avg_loss = 0.0
             avg_accuracy = 0.0
-            batch_iter_max = len(data_loader.dataset) / batch_size + 1
 
             for i, (data, labels) in enumerate(data_loader.batch_loader(data_loader.dataset, batch_size)):
                 # print(labels)
                 # print(data, labels)
-                # attn_seq_length = [[sequence_length]] * len(data)
-                attn_seq_length = [sequence_length] * len(data)
                 _, loss, accuracy, logits, outputs = sess.run([model.train, model.loss, model.accuracy, model.logits,
                                                                model.outputs],
                                                               feed_dict={model.x: data, model.y: labels,
                                                                          model.dropout_keep_prob: 0.5,
-                                                                         model.learning_rate: learning_rate,
-                                                                         model.attn_seq_length: attn_seq_length
+                                                                         model.learning_rate: learning_rate
                                                                          })
 
                 avg_loss += float(loss)
@@ -83,8 +83,10 @@ class Train(ModelSaver):
                 if global_step % print_step_interval == 0:
                     print('[global_step-%i] duration: %is train_loss: %f accuracy: %f' % (
                         global_step, (datetime.now() - step_time).seconds,
-                        float(avg_loss / (i + 1)),
-                        float(avg_accuracy / (i + 1))))
+                        float(avg_loss / print_step_interval),
+                        float(avg_accuracy / print_step_interval)))
+                    avg_loss = 0
+                    avg_accuracy = 0
                     step_time = datetime.now()
 
                 if global_step % (print_step_interval * 10) == 0:
